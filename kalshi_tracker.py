@@ -41,11 +41,14 @@ RERANK_HOURS = float(os.getenv("RERANK_HOURS", "24"))
 MAX_TRADE_AGE_MIN = int(os.getenv("MAX_TRADE_AGE_MIN", "180"))  # never alert on stale trades
 REQUEST_DELAY = float(os.getenv("REQUEST_DELAY", "1.2"))  # be polite; Kalshi returns 429 fast
 
+# Many top traders lock trades behind Kalshi's "Inner Circle", so we search wide
+# (profit / volume / markets-traded boards, several time periods) for public ones.
 LEADERBOARD_QUERIES = [
-    {"metric_name": "projected_pnl", "time_period": "all_time"},
-    {"metric_name": "projected_pnl", "time_period": "monthly"},
-    {"metric_name": "num_markets_traded", "time_period": "all_time"},
+    {"metric_name": m, "time_period": t}
+    for t in ("all_time", "monthly", "weekly")
+    for m in ("projected_pnl", "num_markets_traded", "volume")
 ]
+MAX_VISIBILITY_CHECKS = int(os.getenv("MAX_VISIBILITY_CHECKS", "300"))
 # Tried in order until one returns positions with P&L; the winner is remembered.
 # "{nick}" / "{sid}" are filled with the trader's nickname / social_id.
 POSITION_ENDPOINTS = [
@@ -206,7 +209,7 @@ def leaderboard_pool():
                               "lb_metric": q["metric_name"], "order": order}
                 order += 1
     log(f"leaderboard pool: {len(pool)} public traders")
-    return list(pool.values())[:POOL_SIZE]
+    return list(pool.values())
 
 
 def fill(template, nick, sid):
@@ -264,7 +267,7 @@ def rerank(state):
 
     # Only traders whose trades are public can be alerted on.
     visible, hidden = [], 0
-    for c in pool:
+    for c in pool[:MAX_VISIBILITY_CHECKS]:
         trades = recent_trades(c["nickname"])
         if trades is None:
             hidden += 1
@@ -508,20 +511,25 @@ def probe(state):
         return status, body
 
     # 1) Find a trader whose trades are public (most top traders hide them).
-    nick, checked, hidden = PROBE_NICK, 0, 0
-    st, body = call("leaderboard", "leaderboard", {**LEADERBOARD_QUERIES[0], "limit": 30})
-    names = [r["nickname"] for r in (find_list(body, "nickname") or [])
-             if r.get("nickname") and not r.get("is_anonymous")]
+    nick, checked, hidden, states, visible_empty = PROBE_NICK, 0, 0, {}, ""
+    call("leaderboard", "leaderboard", {**LEADERBOARD_QUERIES[0], "limit": POOL_SIZE})
     if not nick:
-        for n in names[:30]:
+        names = [c["nickname"] for c in leaderboard_pool()]
+        report["pool_size"] = len(names)
+        for n in names[:150]:
             checked += 1
             s, b = get_raw(TRADES_PATH, {"nickname": n, "limit": 5})
-            vis = str(b.get("visibility_state", "")).lower() if isinstance(b, dict) else ""
-            if s == 200 and vis not in HIDDEN_STATES and find_list(b, "trade_id"):
-                nick = n
-                break
+            vis = str(b.get("visibility_state", "?")).lower() if isinstance(b, dict) else f"http{s}"
+            states[vis] = states.get(vis, 0) + 1
+            if s == 200 and vis not in HIDDEN_STATES:
+                if find_list(b, "trade_id"):
+                    nick = n
+                    break
+                visible_empty = visible_empty or n
             hidden += 1
-    report["visibility_scan"] = {"checked": checked, "hidden_or_empty": hidden, "picked": nick}
+        nick = nick or visible_empty
+    report["visibility_scan"] = {"checked": checked, "hidden_or_empty": hidden,
+                                 "picked": nick, "states": states}
 
     # 2) Test every closed-positions guess on that trader.
     found = None
@@ -532,6 +540,8 @@ def probe(state):
         call("metrics", "profile/metrics", {"nickname": nick})
         call("trades", TRADES_PATH, {"nickname": nick, "limit": 5})
         for path, extra in POSITION_ENDPOINTS:
+            if not sid and ("{sid}" in path or any("{sid}" in str(v) for v in extra.values())):
+                continue
             params = {k: fill(str(v), nick, sid) for k, v in extra.items()}
             s, b = call("positions", fill(path, nick, sid), {**params, "limit": 5})
             if s == 200 and found is None and find_list(b, "pnl"):
@@ -548,7 +558,9 @@ def probe(state):
     (PROBE_DIR / "probe.json").write_text(json.dumps(report, indent=1))
     vs = report["visibility_scan"]
     summary = (f"public-trades scan: checked {vs['checked']}, hidden/empty {vs['hidden_or_empty']}, "
-               f"picked {vs['picked'] or 'NONE'}\npositions endpoint: {found or 'not found'}\n")
+               f"picked {vs['picked'] or 'NONE'}\nstates: {vs['states']} "
+               f"(pool {report.get('pool_size', '?')} traders)\n"
+               f"positions endpoint: {found or 'not found'}\n")
     summary += "\n".join(f"{c['status']}  {c['label']:<11} {c['path']} {c['params']}" for c in report["calls"])
     (PROBE_DIR / "summary.txt").write_text(summary + "\n")
     log("probe summary:\n" + summary)
