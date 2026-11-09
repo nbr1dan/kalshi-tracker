@@ -35,7 +35,8 @@ PROBE_NICK = (os.getenv("PROBE_NICKNAME") or "").strip()
 
 TOP_N = int(os.getenv("TOP_N", "5"))
 MIN_RESOLVED = int(os.getenv("MIN_RESOLVED", "50"))
-POOL_SIZE = int(os.getenv("POOL_SIZE", "40"))          # candidates checked per re-rank
+POOL_SIZE = int(os.getenv("POOL_SIZE", "100"))         # leaderboard names pulled per board
+MAX_SCORED = int(os.getenv("MAX_SCORED", "40"))         # visible traders scored per re-rank
 RERANK_HOURS = float(os.getenv("RERANK_HOURS", "24"))
 MAX_TRADE_AGE_MIN = int(os.getenv("MAX_TRADE_AGE_MIN", "180"))  # never alert on stale trades
 REQUEST_DELAY = float(os.getenv("REQUEST_DELAY", "1.2"))  # be polite; Kalshi returns 429 fast
@@ -45,13 +46,23 @@ LEADERBOARD_QUERIES = [
     {"metric_name": "projected_pnl", "time_period": "monthly"},
     {"metric_name": "num_markets_traded", "time_period": "all_time"},
 ]
-# Tried in order until one returns closed positions; the winner is remembered.
+# Tried in order until one returns positions with P&L; the winner is remembered.
+# "{nick}" / "{sid}" are filled with the trader's nickname / social_id.
 POSITION_ENDPOINTS = [
-    ["profile/positions", {"open": "false"}],
-    ["profile/positions", {"is_open": "false"}],
-    ["positions", {"open": "false"}],
-    ["profile/closed_positions", {}],
+    ["profile/positions", {"nickname": "{nick}"}],
+    ["profile/positions", {"nickname": "{nick}", "status": "closed"}],
+    ["profile/positions", {"social_id": "{sid}"}],
+    ["profile/closed_positions", {"social_id": "{sid}"}],
+    ["profile/positions/closed", {"nickname": "{nick}"}],
+    ["profile/settled_positions", {"nickname": "{nick}"}],
+    ["profile/market_positions", {"nickname": "{nick}"}],
+    ["profile/holdings", {"nickname": "{nick}"}],
+    ["positions", {"social_id": "{sid}"}],
+    ["positions", {"nickname": "{nick}", "status": "closed"}],
+    ["profile/{nick}/positions", {}],
+    ["users/{sid}/positions", {}],
 ]
+HIDDEN_STATES = {"hidden", "private", "restricted"}
 TRADES_PATH = "trades"
 PROFILE_URL = "https://kalshi.com/profile/{}"
 
@@ -198,14 +209,35 @@ def leaderboard_pool():
     return list(pool.values())[:POOL_SIZE]
 
 
+def fill(template, nick, sid):
+    return template.replace("{nick}", nick).replace("{sid}", sid or "")
+
+
+def social_id(nick, cache={}):
+    if nick not in cache:
+        data = get("profile", {"nickname": nick}) or {}
+        prof = data.get("social_profile", data) if isinstance(data, dict) else {}
+        cache[nick] = prof.get("social_id", "") if isinstance(prof, dict) else ""
+    return cache[nick]
+
+
 def closed_positions(nick, state):
     eps = POSITION_ENDPOINTS
     known = state.get("positions_endpoint")
     if known:
-        eps = [known] + [e for e in eps if e != known]
+        eps = [known]          # once found, don't waste calls on dead guesses
+    else:
+        missing = parse_time(state.get("positions_missing_since"))
+        if missing and now() - missing < dt.timedelta(days=7):
+            return None        # all guesses 404'd recently; probe mode re-tests them
     any_response = False
     for path, extra in eps:
-        rows = paged(path, {"nickname": nick, "limit": 200, **extra}, "pnl")
+        needs_sid = "{sid}" in path or any("{sid}" in str(v) for v in extra.values())
+        sid = social_id(nick) if needs_sid else ""
+        if needs_sid and not sid:
+            continue
+        params = {k: fill(str(v), nick, sid) for k, v in extra.items()}
+        rows = paged(fill(path, nick, sid), {**params, "limit": 200}, "pnl")
         if rows is None:
             continue
         any_response = True
@@ -229,10 +261,29 @@ def rerank(state):
     if not pool:
         state["status"] = "Could not read Kalshi leaderboard (run probe mode)."
         return False
-    scored, positions_worked = [], False
+
+    # Only traders whose trades are public can be alerted on.
+    visible, hidden = [], 0
     for c in pool:
+        trades = recent_trades(c["nickname"])
+        if trades is None:
+            hidden += 1
+            continue
+        visible.append(c)
+        if len(visible) >= MAX_SCORED:
+            break
+    log(f"{len(visible)} traders with public trades, {hidden} hidden/unreachable")
+    if not visible:
+        state["status"] = "Every leaderboard trader checked has hidden trades."
+        return False
+
+    scored, positions_worked = [], False
+    for c in visible:
         rows = closed_positions(c["nickname"], state)
         if rows is None:
+            if not state.get("positions_endpoint"):
+                state["positions_missing_since"] = now().isoformat(timespec="minutes")
+                break      # no working endpoint: stop hammering Kalshi with 404s
             continue
         positions_worked = positions_worked or bool(rows)
         c.update(win_stats(rows))
@@ -245,11 +296,10 @@ def rerank(state):
         top = eligible[:TOP_N]
         state["ranking_mode"] = f"Win% (min {MIN_RESOLVED} resolved positions)"
     else:
-        # Fallback keeps alerts working if Kalshi hides/changes position data.
-        top = sorted(pool, key=lambda c: c["order"])[:TOP_N]
-        state["ranking_mode"] = ("FALLBACK: leaderboard profit rank "
-                                 "(closed positions unavailable, or nobody had "
-                                 f"{MIN_RESOLVED}+ resolved)")
+        # Fallback keeps alerts working while win% data is unavailable.
+        top = sorted(visible, key=lambda c: c["order"])[:TOP_N]
+        state["ranking_mode"] = ("FALLBACK: top leaderboard profit among traders with public "
+                                 "trades (win% data not available yet)")
         log(state["ranking_mode"])
 
     state["tracked"] = [{k: c.get(k) for k in
@@ -262,7 +312,8 @@ def rerank(state):
 
 
 def rerank_due(state):
-    if MODE == "rerank" or not state.get("tracked") or not state.get("last_rerank"):
+    if (MODE == "rerank" or state.get("needs_rerank")
+            or not state.get("tracked") or not state.get("last_rerank")):
         return True
     last = parse_time(state["last_rerank"])
     return last is None or now() - last > dt.timedelta(hours=RERANK_HOURS)
@@ -270,8 +321,11 @@ def rerank_due(state):
 
 # ----------------------------- trades & alerts ------------------------------
 def recent_trades(nick):
+    """List of the trader's public trades, or None if hidden/unreachable."""
     data = get(TRADES_PATH, {"nickname": nick, "limit": 50})
     if data is None:
+        return None
+    if isinstance(data, dict) and str(data.get("visibility_state", "")).lower() in HIDDEN_STATES:
         return None
     rows = find_list(data, "trade_id") or []
     lo = nick.lower()
@@ -382,8 +436,10 @@ def check_trades(state):
     state["alerts"] = state.get("alerts", [])[:40]
     tracked_names = {t["nickname"] for t in state.get("tracked", [])}
     state["seen"] = {k: v for k, v in seen.items() if k in tracked_names}
-    if state.get("tracked") and reached == 0:
-        state["status"] = "Kalshi trades endpoint unreachable on last check (run probe mode)."
+    # If no tracked trader's trades are readable (all went hidden), re-rank next run.
+    state["needs_rerank"] = bool(state.get("tracked")) and reached == 0
+    if state["needs_rerank"]:
+        state["status"] = "Tracked traders' trades are hidden or unreachable; re-ranking next run."
 
 
 # ----------------------------- dashboard ------------------------------------
@@ -393,7 +449,8 @@ def write_dashboard(state):
     cards = []
     for i, t in enumerate(state.get("tracked", []), 1):
         wr = f"{t['win_pct']}%" if t.get("resolved") else "—"
-        rec = f"{t.get('wins', 0)}W · {t.get('losses', 0)}L · {t.get('resolved', 0)} resolved"
+        rec = (f"{t.get('wins') or 0}W · {t.get('losses') or 0}L · {t.get('resolved') or 0} resolved"
+               if t.get("resolved") else f"Leaderboard #{t.get('lb_rank') or '?'} (profit)")
         cards.append(
             f'<a class="card" href="{e(PROFILE_URL.format(t["nickname"]))}">'
             f'<div class="rank">#{i}</div><div class="who"><b>{e(t["nickname"])}</b>'
@@ -450,21 +507,49 @@ def probe(state):
                                 "status": status, "sample": shrink(body)})
         return status, body
 
-    nick = PROBE_NICK
-    for q in LEADERBOARD_QUERIES[:2]:
-        st, body = call("leaderboard", "leaderboard", {**q, "limit": 5})
-        rows = find_list(body, "nickname") or []
-        if not nick:
-            nick = next((r["nickname"] for r in rows if r.get("nickname") and not r.get("is_anonymous")), "")
+    # 1) Find a trader whose trades are public (most top traders hide them).
+    nick, checked, hidden = PROBE_NICK, 0, 0
+    st, body = call("leaderboard", "leaderboard", {**LEADERBOARD_QUERIES[0], "limit": 30})
+    names = [r["nickname"] for r in (find_list(body, "nickname") or [])
+             if r.get("nickname") and not r.get("is_anonymous")]
+    if not nick:
+        for n in names[:30]:
+            checked += 1
+            s, b = get_raw(TRADES_PATH, {"nickname": n, "limit": 5})
+            vis = str(b.get("visibility_state", "")).lower() if isinstance(b, dict) else ""
+            if s == 200 and vis not in HIDDEN_STATES and find_list(b, "trade_id"):
+                nick = n
+                break
+            hidden += 1
+    report["visibility_scan"] = {"checked": checked, "hidden_or_empty": hidden, "picked": nick}
+
+    # 2) Test every closed-positions guess on that trader.
+    found = None
     if nick:
-        call("profile", "profile", {"nickname": nick})
+        _, prof = call("profile", "profile", {"nickname": nick})
+        p = prof.get("social_profile", {}) if isinstance(prof, dict) else {}
+        sid = p.get("social_id", "") if isinstance(p, dict) else ""
         call("metrics", "profile/metrics", {"nickname": nick})
-        for path, extra in POSITION_ENDPOINTS:
-            call("positions", path, {"nickname": nick, "limit": 5, **extra})
         call("trades", TRADES_PATH, {"nickname": nick, "limit": 5})
+        for path, extra in POSITION_ENDPOINTS:
+            params = {k: fill(str(v), nick, sid) for k, v in extra.items()}
+            s, b = call("positions", fill(path, nick, sid), {**params, "limit": 5})
+            if s == 200 and found is None and find_list(b, "pnl"):
+                found = [path, extra]
+    if found:
+        state["positions_endpoint"] = found
+        state.pop("positions_missing_since", None)
+        state["needs_rerank"] = True
+    else:
+        state.pop("positions_missing_since", None)   # let the next re-rank try again
+    save_state(state)
     report["nickname_tested"] = nick
+    report["positions_endpoint_found"] = found
     (PROBE_DIR / "probe.json").write_text(json.dumps(report, indent=1))
-    summary = "\n".join(f"{c['status']}  {c['label']:<11} {c['path']} {c['params']}" for c in report["calls"])
+    vs = report["visibility_scan"]
+    summary = (f"public-trades scan: checked {vs['checked']}, hidden/empty {vs['hidden_or_empty']}, "
+               f"picked {vs['picked'] or 'NONE'}\npositions endpoint: {found or 'not found'}\n")
+    summary += "\n".join(f"{c['status']}  {c['label']:<11} {c['path']} {c['params']}" for c in report["calls"])
     (PROBE_DIR / "summary.txt").write_text(summary + "\n")
     log("probe summary:\n" + summary)
     sent = send_discord({"username": "Kalshi Tracker",
