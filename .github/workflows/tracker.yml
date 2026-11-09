@@ -1,0 +1,49 @@
+name: Kalshi tracker
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 min (GitHub may delay a few minutes)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "run, rerank, or probe"
+        type: choice
+        options: [run, rerank, probe]
+        default: run
+      nickname:
+        description: "Probe only: a Kalshi nickname to test (optional)"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kalshi-tracker
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Run tracker
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          MODE: ${{ inputs.mode || 'run' }}
+          PROBE_NICKNAME: ${{ inputs.nickname }}
+        run: python kalshi_tracker.py
+      - name: Save state and dashboard
+        run: |
+          git config user.name "kalshi-tracker"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "tracker update"
+            git pull --rebase
+            git push
+          fi
