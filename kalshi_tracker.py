@@ -49,22 +49,9 @@ LEADERBOARD_QUERIES = [
     for m in ("projected_pnl", "num_markets_traded", "volume")
 ]
 MAX_VISIBILITY_CHECKS = int(os.getenv("MAX_VISIBILITY_CHECKS", "300"))
-# Tried in order until one returns positions with P&L; the winner is remembered.
-# "{nick}" / "{sid}" are filled with the trader's nickname / social_id.
-POSITION_ENDPOINTS = [
-    ["profile/positions", {"nickname": "{nick}"}],
-    ["profile/positions", {"nickname": "{nick}", "status": "closed"}],
-    ["profile/positions", {"social_id": "{sid}"}],
-    ["profile/closed_positions", {"social_id": "{sid}"}],
-    ["profile/positions/closed", {"nickname": "{nick}"}],
-    ["profile/settled_positions", {"nickname": "{nick}"}],
-    ["profile/market_positions", {"nickname": "{nick}"}],
-    ["profile/holdings", {"nickname": "{nick}"}],
-    ["positions", {"social_id": "{sid}"}],
-    ["positions", {"nickname": "{nick}", "status": "closed"}],
-    ["profile/{nick}/positions", {}],
-    ["users/{sid}/positions", {}],
-]
+# Kalshi's official public market API: used to look up how markets settled.
+MARKETS_BASE = "https://api.elections.kalshi.com/trade-api/v2"
+TRADE_HISTORY_PAGES = int(os.getenv("TRADE_HISTORY_PAGES", "10"))   # 100 trades/page
 HIDDEN_STATES = {"hidden", "private", "restricted"}
 TRADES_PATH = "trades"
 PROFILE_URL = "https://kalshi.com/profile/{}"
@@ -94,7 +81,7 @@ def now():
 
 def get_raw(path, params=None, tries=4):
     """Return (status_code, json_or_text). status 0 = network failure."""
-    url = f"{BASE}/{path}"
+    url = path if path.startswith("http") else f"{BASE}/{path}"
     status, body = 0, None
     for attempt in range(tries):
         try:
@@ -212,51 +199,78 @@ def leaderboard_pool():
     return list(pool.values())
 
 
-def fill(template, nick, sid):
-    return template.replace("{nick}", nick).replace("{sid}", sid or "")
+def yes_price_c(t):
+    """Trade price in cents of YES (Kalshi trade prints are YES-priced)."""
+    if t.get("price_dollars") not in (None, ""):
+        return num(t["price_dollars"]) * 100
+    p = num(t.get("price"))
+    return p * 100 if 0 < p <= 1 else p
 
 
-def social_id(nick, cache={}):
-    if nick not in cache:
-        data = get("profile", {"nickname": nick}) or {}
-        prof = data.get("social_profile", data) if isinstance(data, dict) else {}
-        cache[nick] = prof.get("social_id", "") if isinstance(prof, dict) else ""
-    return cache[nick]
+def contracts(t):
+    return num(t.get("count_fp") or t.get("count"))
 
 
-def closed_positions(nick, state):
-    eps = POSITION_ENDPOINTS
-    known = state.get("positions_endpoint")
-    if known:
-        eps = [known]          # once found, don't waste calls on dead guesses
-    else:
-        missing = parse_time(state.get("positions_missing_since"))
-        if missing and now() - missing < dt.timedelta(days=7):
-            return None        # all guesses 404'd recently; probe mode re-tests them
-    any_response = False
-    for path, extra in eps:
-        needs_sid = "{sid}" in path or any("{sid}" in str(v) for v in extra.values())
-        sid = social_id(nick) if needs_sid else ""
-        if needs_sid and not sid:
-            continue
-        params = {k: fill(str(v), nick, sid) for k, v in extra.items()}
-        rows = paged(fill(path, nick, sid), {**params, "limit": 200}, "pnl")
-        if rows is None:
-            continue
-        any_response = True
-        rows = [r for r in rows if not r.get("open_position", False)]
-        if rows:
-            state["positions_endpoint"] = [path, extra]
-            return rows
-    return [] if any_response else None
+def is_maker(t, nick):
+    return ((t.get("taker_nickname") or "").lower() != nick.lower()
+            and (t.get("maker_nickname") or "").lower() == nick.lower())
 
 
-def win_stats(rows):
-    wins = sum(1 for r in rows if num(r.get("pnl")) > 0)
-    losses = sum(1 for r in rows if num(r.get("pnl")) < 0)
+def yes_dir(t, nick):
+    """+1 if the trade added YES exposure for this trader, -1 if it reduced it."""
+    side = (t.get("taker_side") or "").lower()
+    action = (t.get("taker_action") or "buy").lower()
+    d = 1 if (side == "yes") == (action == "buy") else -1
+    return -d if is_maker(t, nick) else d
+
+
+def market_results(tickers, state):
+    """ticker -> 'yes'/'no' for settled markets (cached in state)."""
+    cache = state.setdefault("market_results", {})
+    need = [t for t in tickers if t not in cache]
+    for i in range(0, len(need), 40):
+        chunk = need[i:i + 40]
+        data = get(f"{MARKETS_BASE}/markets", {"tickers": ",".join(chunk), "limit": 100})
+        for m in (find_list(data, "ticker") or []) if data else []:
+            res = str(m.get("result") or "").lower()
+            if res in ("yes", "no"):
+                cache[m["ticker"]] = res
+    if len(cache) > 8000:                       # keep state.json small
+        state["market_results"] = cache = dict(list(cache.items())[-6000:])
+    return cache
+
+
+def score_trader(nick, state):
+    """Win% = share of settled markets (in recent public trades) the trader profited on."""
+    trades = paged(TRADES_PATH, {"nickname": nick, "limit": 100}, "trade_id", TRADE_HISTORY_PAGES)
+    if not trades:
+        return None
+    by_mkt = {}
+    for t in trades:
+        if t.get("ticker"):
+            by_mkt.setdefault(t["ticker"], []).append(t)
+    if len(trades) >= TRADE_HISTORY_PAGES * 100:
+        # History was cut off: the oldest market may be missing earlier fills.
+        oldest = min(trades, key=lambda t: t.get("create_date") or "")
+        by_mkt.pop(oldest.get("ticker"), None)
+    results = market_results(list(by_mkt), state)
+    wins = losses = 0
+    pnl = 0.0
+    for tk, rows in by_mkt.items():
+        res = results.get(tk)
+        if res not in ("yes", "no"):
+            continue                            # still open
+        settle = 100 if res == "yes" else 0
+        p = sum(yes_dir(t, nick) * contracts(t) * (settle - yes_price_c(t)) for t in rows) / 100
+        pnl += p
+        if p > 0.005:
+            wins += 1
+        elif p < -0.005:
+            losses += 1
     resolved = wins + losses
     return {"wins": wins, "losses": losses, "resolved": resolved,
-            "win_pct": round(100 * wins / resolved, 1) if resolved else 0.0}
+            "win_pct": round(100 * wins / resolved, 1) if resolved else 0.0,
+            "sample_pnl": round(pnl, 2), "markets_seen": len(by_mkt), "trades_seen": len(trades)}
 
 
 def rerank(state):
@@ -280,36 +294,35 @@ def rerank(state):
         state["status"] = "Every leaderboard trader checked has hidden trades."
         return False
 
-    scored, positions_worked = [], False
+    scored = []
     for c in visible:
-        rows = closed_positions(c["nickname"], state)
-        if rows is None:
-            if not state.get("positions_endpoint"):
-                state["positions_missing_since"] = now().isoformat(timespec="minutes")
-                break      # no working endpoint: stop hammering Kalshi with 404s
+        stats = score_trader(c["nickname"], state)
+        if stats is None:
             continue
-        positions_worked = positions_worked or bool(rows)
-        c.update(win_stats(rows))
+        c.update(stats)
         scored.append(c)
-        log(f"  {c['nickname']}: {c['win_pct']}% over {c['resolved']}")
+        log(f"  {c['nickname']}: {c['win_pct']}% over {c['resolved']} settled markets")
 
     eligible = [c for c in scored if c["resolved"] >= MIN_RESOLVED]
-    if eligible:
-        eligible.sort(key=lambda c: (c["win_pct"], c["resolved"]), reverse=True)
-        top = eligible[:TOP_N]
-        state["ranking_mode"] = f"Win% (min {MIN_RESOLVED} resolved positions)"
-    else:
-        # Fallback keeps alerts working while win% data is unavailable.
-        top = sorted(visible, key=lambda c: c["order"])[:TOP_N]
-        state["ranking_mode"] = ("FALLBACK: top leaderboard profit among traders with public "
-                                 "trades (win% data not available yet)")
-        log(state["ranking_mode"])
+    eligible.sort(key=lambda c: (c["win_pct"], c["resolved"]), reverse=True)
+    others = sorted((c for c in visible if c not in eligible),
+                    key=lambda c: ((c.get("resolved") or 0) >= 10, c.get("win_pct") or 0, -c["order"]),
+                    reverse=True)
+    top = (eligible + others)[:TOP_N]
+    short = len(top) - min(len(eligible), len(top))
+    state["ranking_mode"] = f"Win% on settled markets (min {MIN_RESOLVED})"
+    if short:
+        state["ranking_mode"] += f" · {short} pick(s) have fewer settled markets"
+    if len(visible) < TOP_N:
+        state["ranking_mode"] += f" · only {len(visible)} traders with public trades found"
+    log(state["ranking_mode"])
 
     state["tracked"] = [{k: c.get(k) for k in
-                         ("nickname", "win_pct", "wins", "losses", "resolved", "lb_rank", "lb_metric")}
+                         ("nickname", "win_pct", "wins", "losses", "resolved", "sample_pnl",
+                          "lb_rank", "lb_metric")}
                         for c in top]
     state["last_rerank"] = now().isoformat(timespec="minutes")
-    state["status"] = "" if positions_worked else state["ranking_mode"]
+    state["status"] = ""
     log("tracking: " + ", ".join(t["nickname"] for t in state["tracked"]))
     return True
 
@@ -341,23 +354,22 @@ def recent_trades(nick):
 
 
 def trader_side(t, nick):
-    """Work out what *this trader* did. Kalshi trade prints are YES-priced."""
-    taker_side = (t.get("taker_side") or "").lower()
-    if (t.get("taker_nickname") or "").lower() == nick.lower():
-        side, action = taker_side, (t.get("taker_action") or "buy")
-    elif (t.get("maker_nickname") or "").lower() == nick.lower():
-        side = {"yes": "no", "no": "yes"}.get(taker_side, taker_side)  # maker holds the other side
-        action = t.get("maker_action") or "buy"
-    else:
-        side, action = taker_side, (t.get("taker_action") or "?")
-    yes_c = num(t.get("price"))
-    if 0 < yes_c <= 1:            # dollars, not cents
-        yes_c *= 100
-    if not yes_c and t.get("price_dollars"):
-        yes_c = num(t["price_dollars"]) * 100
-    price_c = yes_c if side == "yes" else (100 - yes_c if yes_c else 0)
-    count = num(t.get("count") or t.get("count_fp"))
-    return side.upper() or "?", action.upper(), round(price_c), count
+    """(SIDE, ACTION) from this trader's point of view."""
+    side = (t.get("taker_side") or "").lower()
+    action = (t.get("taker_action") or "buy").lower()
+    if is_maker(t, nick):          # maker took the opposite side (selling YES == buying NO)
+        side = {"yes": "no", "no": "yes"}.get(side, side)
+    return side.upper() or "?", action.upper()
+
+
+def market_title(ticker, cache={}):
+    if ticker not in cache:
+        data = get(f"{MARKETS_BASE}/markets/{ticker}") or {}
+        m = data.get("market", {}) if isinstance(data, dict) else {}
+        title = m.get("title") or ""
+        sub = m.get("yes_sub_title") or m.get("subtitle") or ""
+        cache[ticker] = (f"{title} — {sub}" if sub and sub not in title else title) or ticker
+    return cache[ticker]
 
 
 def send_discord(payload):
@@ -381,33 +393,37 @@ def send_discord(payload):
     return False
 
 
-def alert(trader, t):
+def alert(trader, group):
+    """One alert for a burst of fills on the same market/side/action."""
     nick = trader["nickname"]
-    side, action, price_c, count = trader_side(t, nick)
-    cost = price_c * count / 100
-    market = t.get("name") or t.get("ticker") or "Unknown market"
-    color = 0x2ECC71 if action == "BUY" else 0xE74C3C
+    t0 = group[0]
+    side, action = trader_side(t0, nick)
+    qty = sum(contracts(t) for t in group)
+    side_px = [(yes_price_c(t) if side == "YES" else 100 - yes_price_c(t)) for t in group]
+    avg = sum(p * contracts(t) for p, t in zip(side_px, group)) / qty if qty else 0
+    cost = avg * qty / 100
+    market = market_title(t0.get("ticker") or "?")
     wr = (f"{trader['win_pct']}% ({trader['wins']}W-{trader['losses']}L)"
           if trader.get("resolved") else "n/a")
+    fills = f" · {len(group)} fills" if len(group) > 1 else ""
     embed = {
-        "title": f"{nick}: {action} {side}",
+        "title": f"{nick}: {action} {side} @ {avg:.1f}¢",
         "description": market[:250],
         "url": PROFILE_URL.format(nick),
-        "color": color,
+        "color": 0x2ECC71 if action == "BUY" else 0xE74C3C,
         "fields": [
-            {"name": "Ticker", "value": t.get("ticker") or "?", "inline": True},
-            {"name": "Price", "value": f"{price_c}¢", "inline": True},
-            {"name": "Contracts", "value": f"{count:g}", "inline": True},
+            {"name": "Contracts", "value": f"{qty:,.0f}{fills}", "inline": True},
             {"name": "≈ Cost", "value": f"${cost:,.2f}", "inline": True},
             {"name": "Trader win%", "value": wr, "inline": True},
+            {"name": "Ticker", "value": f"`{t0.get('ticker') or '?'}`", "inline": False},
         ],
         "footer": {"text": "Kalshi tracker · alert only, not advice"},
-        "timestamp": t.get("create_date") or now().isoformat(),
+        "timestamp": group[-1].get("create_date") or now().isoformat(),
     }
     ok = send_discord({"username": "Kalshi Tracker", "embeds": [embed]})
-    return ok, {"time": t.get("create_date") or now().isoformat(timespec="minutes"),
-                "nickname": nick, "action": action, "side": side, "price": price_c,
-                "count": count, "market": market[:120], "ticker": t.get("ticker")}
+    return ok, {"time": group[-1].get("create_date") or now().isoformat(timespec="minutes"),
+                "nickname": nick, "action": action, "side": side, "price": round(avg, 1),
+                "count": round(qty), "market": market[:120], "ticker": t0.get("ticker")}
 
 
 def check_trades(state):
@@ -427,14 +443,17 @@ def check_trades(state):
         known = set(seen[nick])
         new = [t for t in trades if str(t.get("trade_id")) not in known]
         new.sort(key=lambda t: t.get("create_date") or "")
+        new = [t for t in new if not (parse_time(t.get("create_date")) and
+               now() - parse_time(t.get("create_date")) > dt.timedelta(minutes=MAX_TRADE_AGE_MIN))]
+        groups = {}
         for t in new:
-            ts = parse_time(t.get("create_date"))
-            if ts and now() - ts > dt.timedelta(minutes=MAX_TRADE_AGE_MIN):
-                continue
-            ok, rec = alert(trader, t)
+            key = (t.get("ticker"),) + trader_side(t, nick)
+            groups.setdefault(key, []).append(t)
+        for group in groups.values():
+            ok, rec = alert(trader, group)
             if ok:
                 state["alerts"].insert(0, rec)
-                log(f"ALERT {nick} {rec['action']} {rec['side']} {rec['ticker']}")
+                log(f"ALERT {nick} {rec['action']} {rec['side']} {rec['ticker']} x{rec['count']}")
         seen[nick] = (ids + seen[nick])[:300] if new else seen[nick]
     state["alerts"] = state.get("alerts", [])[:40]
     tracked_names = {t["nickname"] for t in state.get("tracked", [])}
@@ -531,36 +550,25 @@ def probe(state):
     report["visibility_scan"] = {"checked": checked, "hidden_or_empty": hidden,
                                  "picked": nick, "states": states}
 
-    # 2) Test every closed-positions guess on that trader.
-    found = None
+    # 2) Score the picked trader from trade history + official market results.
+    stats = None
     if nick:
-        _, prof = call("profile", "profile", {"nickname": nick})
-        p = prof.get("social_profile", {}) if isinstance(prof, dict) else {}
-        sid = p.get("social_id", "") if isinstance(p, dict) else ""
+        call("profile", "profile", {"nickname": nick})
         call("metrics", "profile/metrics", {"nickname": nick})
-        call("trades", TRADES_PATH, {"nickname": nick, "limit": 5})
-        for path, extra in POSITION_ENDPOINTS:
-            if not sid and ("{sid}" in path or any("{sid}" in str(v) for v in extra.values())):
-                continue
-            params = {k: fill(str(v), nick, sid) for k, v in extra.items()}
-            s, b = call("positions", fill(path, nick, sid), {**params, "limit": 5})
-            if s == 200 and found is None and find_list(b, "pnl"):
-                found = [path, extra]
-    if found:
-        state["positions_endpoint"] = found
-        state.pop("positions_missing_since", None)
-        state["needs_rerank"] = True
-    else:
-        state.pop("positions_missing_since", None)   # let the next re-rank try again
-    save_state(state)
+        _, tb = call("trades", TRADES_PATH, {"nickname": nick, "limit": 5})
+        first = (find_list(tb, "trade_id") or [{}])[0].get("ticker")
+        if first:
+            call("market", f"{MARKETS_BASE}/markets/{first}", {})
+        stats = score_trader(nick, state)
+        save_state(state)
+    report["win_stats"] = stats
     report["nickname_tested"] = nick
-    report["positions_endpoint_found"] = found
     (PROBE_DIR / "probe.json").write_text(json.dumps(report, indent=1))
     vs = report["visibility_scan"]
     summary = (f"public-trades scan: checked {vs['checked']}, hidden/empty {vs['hidden_or_empty']}, "
                f"picked {vs['picked'] or 'NONE'}\nstates: {vs['states']} "
                f"(pool {report.get('pool_size', '?')} traders)\n"
-               f"positions endpoint: {found or 'not found'}\n")
+               f"win stats: {report['win_stats']}\n")
     summary += "\n".join(f"{c['status']}  {c['label']:<11} {c['path']} {c['params']}" for c in report["calls"])
     (PROBE_DIR / "summary.txt").write_text(summary + "\n")
     log("probe summary:\n" + summary)
