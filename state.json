@@ -1,6 +1,6 @@
 {
  "alerts": [],
- "heartbeat": "2026-11-09 15:00 UTC",
+ "heartbeat": "2026-11-09 23:00 UTC",
  "last_rerank": "2026-11-09T15:11+00:00",
  "market_results": {
   "KXMVECROSSCATEGORY-S2026H4GS5X77QCR2UJIB-NGBOZCUZ3": "no",
@@ -17,6 +17,7 @@
   "KXNCAAFTOTAL-26OCT31WISIOWA-38": "no",
   "KXNCAAFTOTAL-26OCT31WISIOWA-41": "no"
  },
+ "needs_rerank": true,
  "positions_endpoint": null,
  "ranking_mode": "FALLBACK: leaderboard profit rank (closed positions unavailable, or nobody had 50+ resolved)",
  "seen": {
@@ -26,7 +27,7 @@
   "final.lamb3899": [],
   "user.x": []
  },
- "status": "FALLBACK: leaderboard profit rank (closed positions unavailable, or nobody had 50+ resolved)",
+ "status": "Tracked traders' trades are hidden or unreachable; re-ranking next run.",
  "tracked": [
   {
    "lb_metric": "projected_pnl",
