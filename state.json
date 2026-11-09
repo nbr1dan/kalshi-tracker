@@ -1,0 +1,62 @@
+{
+ "alerts": [],
+ "heartbeat": "2026-11-09 15:00 UTC",
+ "last_rerank": "2026-11-09T15:11+00:00",
+ "positions_endpoint": null,
+ "ranking_mode": "FALLBACK: leaderboard profit rank (closed positions unavailable, or nobody had 50+ resolved)",
+ "seen": {
+  "4thewin": [],
+  "COBYBETS1onX": [],
+  "dogname": [],
+  "final.lamb3899": [],
+  "user.x": []
+ },
+ "status": "FALLBACK: leaderboard profit rank (closed positions unavailable, or nobody had 50+ resolved)",
+ "tracked": [
+  {
+   "lb_metric": "projected_pnl",
+   "lb_rank": 1,
+   "losses": null,
+   "nickname": "4thewin",
+   "resolved": null,
+   "win_pct": null,
+   "wins": null
+  },
+  {
+   "lb_metric": "projected_pnl",
+   "lb_rank": 2,
+   "losses": null,
+   "nickname": "final.lamb3899",
+   "resolved": null,
+   "win_pct": null,
+   "wins": null
+  },
+  {
+   "lb_metric": "projected_pnl",
+   "lb_rank": 3,
+   "losses": null,
+   "nickname": "dogname",
+   "resolved": null,
+   "win_pct": null,
+   "wins": null
+  },
+  {
+   "lb_metric": "projected_pnl",
+   "lb_rank": 4,
+   "losses": null,
+   "nickname": "user.x",
+   "resolved": null,
+   "win_pct": null,
+   "wins": null
+  },
+  {
+   "lb_metric": "projected_pnl",
+   "lb_rank": 5,
+   "losses": null,
+   "nickname": "COBYBETS1onX",
+   "resolved": null,
+   "win_pct": null,
+   "wins": null
+  }
+ ]
+}
