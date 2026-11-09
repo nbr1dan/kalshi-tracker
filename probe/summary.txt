@@ -1,19 +1,8 @@
 public-trades scan: checked 80, hidden/empty 79, picked BWmarkets
 states: {'hidden': 79, 'visible': 1} (pool 553 traders)
-positions endpoint: not found
+win stats: {'wins': 6, 'losses': 7, 'resolved': 13, 'win_pct': 46.2, 'sample_pnl': 25420.18, 'markets_seen': 13, 'trades_seen': 1000}
 200  leaderboard leaderboard {'metric_name': 'projected_pnl', 'time_period': 'all_time', 'limit': 100}
 200  profile     profile {'nickname': 'BWmarkets'}
 200  metrics     profile/metrics {'nickname': 'BWmarkets'}
 200  trades      trades {'nickname': 'BWmarkets', 'limit': 5}
-404  positions   profile/positions {'nickname': 'BWmarkets', 'limit': 5}
-404  positions   profile/positions {'nickname': 'BWmarkets', 'status': 'closed', 'limit': 5}
-404  positions   profile/positions {'social_id': '87218195-9878-4036-a216-246deb7d0e50', 'limit': 5}
-404  positions   profile/closed_positions {'social_id': '87218195-9878-4036-a216-246deb7d0e50', 'limit': 5}
-404  positions   profile/positions/closed {'nickname': 'BWmarkets', 'limit': 5}
-404  positions   profile/settled_positions {'nickname': 'BWmarkets', 'limit': 5}
-404  positions   profile/market_positions {'nickname': 'BWmarkets', 'limit': 5}
-200  positions   profile/holdings {'nickname': 'BWmarkets', 'limit': 5}
-404  positions   positions {'social_id': '87218195-9878-4036-a216-246deb7d0e50', 'limit': 5}
-404  positions   positions {'nickname': 'BWmarkets', 'status': 'closed', 'limit': 5}
-404  positions   profile/BWmarkets/positions {'limit': 5}
-404  positions   users/87218195-9878-4036-a216-246deb7d0e50/positions {'limit': 5}
+200  market      https://api.elections.kalshi.com/trade-api/v2/markets/KXMVECROSSCATEGORY-S2026H4GS5X77QCR2UJIB-NGBOZCUZ3 {}

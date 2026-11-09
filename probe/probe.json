@@ -1,6 +1,6 @@
 {
  "base": "https://api.elections.kalshi.com/v1/social",
- "time": "2026-11-09T16:49:41+00:00",
+ "time": "2026-11-09T17:37:36+00:00",
  "calls": [
   {
    "label": "leaderboard",
@@ -25,7 +25,7 @@
       "nickname": "final.lamb3899",
       "social_id": "",
       "profile_image_path": "final.lamb3899-generated-0-1780002060610",
-      "value": 7702316,
+      "value": 7711814.5,
       "rank": 2,
       "is_anonymous": false
      },
@@ -33,7 +33,7 @@
       "nickname": "dogname",
       "social_id": "",
       "profile_image_path": "RedskinRick-generated-0-1782513459146",
-      "value": 6537914,
+      "value": 6537926.5,
       "rank": 3,
       "is_anonymous": false
      },
@@ -57,7 +57,7 @@
     "social_profile": {
      "social_id": "87218195-9878-4036-a216-246deb7d0e50",
      "nickname": "BWmarkets",
-     "follower_count": 21983,
+     "follower_count": 21993,
      "following_count": 0,
      "posts_count": 18,
      "profile_image_path": "BWmarkets-2026-09-11 00:02:53-5e93dac2-719d-40fb-b2c6-a5712270d40e",
@@ -65,7 +65,7 @@
      "pending_profile_image_path": "",
      "blocked": false,
      "joined_at": "2025-02-03",
-     "profile_view_count": 146128,
+     "profile_view_count": 146380,
      "top_categories": [
       "Sports",
       "Combos"
@@ -161,128 +161,90 @@
    }
   },
   {
-   "label": "positions",
-   "path": "profile/positions",
-   "params": {
-    "nickname": "BWmarkets",
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "profile/positions",
-   "params": {
-    "nickname": "BWmarkets",
-    "status": "closed",
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "profile/positions",
-   "params": {
-    "social_id": "87218195-9878-4036-a216-246deb7d0e50",
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "profile/closed_positions",
-   "params": {
-    "social_id": "87218195-9878-4036-a216-246deb7d0e50",
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "profile/positions/closed",
-   "params": {
-    "nickname": "BWmarkets",
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "profile/settled_positions",
-   "params": {
-    "nickname": "BWmarkets",
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "profile/market_positions",
-   "params": {
-    "nickname": "BWmarkets",
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "profile/holdings",
-   "params": {
-    "nickname": "BWmarkets",
-    "limit": 5
-   },
+   "label": "market",
+   "path": "https://api.elections.kalshi.com/trade-api/v2/markets/KXMVECROSSCATEGORY-S2026H4GS5X77QCR2UJIB-NGBOZCUZ3",
+   "params": {},
    "status": 200,
    "sample": {
-    "holdings": [],
-    "social_id": "87218195-9878-4036-a216-246deb7d0e50",
-    "visibility_state": "visible"
+    "market": {
+     "can_close_early": true,
+     "close_time": "2026-11-09T01:43:21Z",
+     "created_time": "2026-11-08T23:01:22.845196Z",
+     "custom_strike": {
+      "Associated Events": "KXNBATOTAL-26NOV08LALDET,KXNFLSPREAD-26NOV08GBNE",
+      "Associated Market Sides": "no,yes",
+      "Associated Markets": "KXNBATOTAL-26NOV08LALDET-217,KXNFLSPREAD-26NOV08GBNE-GB7",
+      "Multivariate Event Ticker": "KXMVECROSSCATEGORY-S2026H4GS5X77QCR2UJIB"
+     },
+     "event_ticker": "KXMVECROSSCATEGORY-S2026H4GS5X77QCR2UJIB",
+     "exchange_index": 1,
+     "expected_expiration_time": "2026-11-09T05:00:00Z",
+     "expiration_time": "2026-11-10T23:00:00Z",
+     "expiration_value": "",
+     "last_price_dollars": "0.3940",
+     "latest_expiration_time": "2026-11-10T23:00:00Z",
+     "market_type": "binary",
+     "mve_collection_ticker": "KXMVECROSSCATEGORY-R",
+     "mve_selected_legs": [
+      {
+       "event_ticker": "KXNBATOTAL-26NOV08LALDET",
+       "market_ticker": "KXNBATOTAL-26NOV08LALDET-217",
+       "side": "no"
+      },
+      {
+       "event_ticker": "KXNFLSPREAD-26NOV08GBNE",
+       "market_ticker": "KXNFLSPREAD-26NOV08GBNE-GB7",
+       "side": "yes"
+      }
+     ],
+     "no_ask_dollars": "1.0000",
+     "no_bid_dollars": "0.0000",
+     "no_sub_title": "no Over 216.5 points,yes Green Bay wins by over 6.5 points",
+     "notional_value_dollars": "1.0000",
+     "open_interest_fp": "61764.32",
+     "open_time": "2026-11-08T23:01:22Z",
+     "previous_price_dollars": "0.0000",
+     "previous_yes_ask_dollars": "0.0000",
+     "previous_yes_bid_dollars": "0.0000",
+     "price_level_structure": "center_deci_edge_centi_cent",
+     "price_ranges": [
+      {
+       "end": "0.0100",
+       "start": "0.0000",
+       "step": "0.0001"
+      },
+      {
+       "end": "0.9900",
+       "start": "0.0100",
+       "step": "0.0010"
+      },
+      {
+       "end": "1.0000",
+       "start": "0.9900",
+       "step": "0.0001"
+      }
+     ],
+     "result": "no",
+     "rules_primary": "",
+     "rules_secondary": "Kalshi is not affiliated, associated, authorized, endorsed by, or in any way officially connected with the Governing League. All trademarks, logos, and brand names are the property of their respective owners.",
+     "settlement_bounds_type": "default",
+     "settlement_timer_seconds": 5,
+     "settlement_ts": "2026-11-09T01:43:27.370879Z",
+     "settlement_value_dollars": "0.0000",
+     "status": "finalized",
+     "strike_type": "custom",
+     "ticker": "KXMVECROSSCATEGORY-S2026H4GS5X77QCR2UJIB-NGBOZCUZ3",
+     "title": "no Over 216.5 points,yes Green Bay wins by over 6.5 points",
+     "updated_time": "2026-11-09T01:43:27.786939Z",
+     "volume_24h_fp": "0.00",
+     "volume_fp": "62490.70",
+     "yes_ask_dollars": "1.0000",
+     "yes_ask_size_fp": "0.00",
+     "yes_bid_dollars": "0.0000",
+     "yes_bid_size_fp": "0.00",
+     "yes_sub_title": "no Over 216.5 points,yes Green Bay wins by over 6.5 points"
+    }
    }
-  },
-  {
-   "label": "positions",
-   "path": "positions",
-   "params": {
-    "social_id": "87218195-9878-4036-a216-246deb7d0e50",
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "positions",
-   "params": {
-    "nickname": "BWmarkets",
-    "status": "closed",
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "profile/BWmarkets/positions",
-   "params": {
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
-  },
-  {
-   "label": "positions",
-   "path": "users/87218195-9878-4036-a216-246deb7d0e50/positions",
-   "params": {
-    "limit": 5
-   },
-   "status": 404,
-   "sample": ""
   }
  ],
  "pool_size": 553,
@@ -295,6 +257,14 @@
    "visible": 1
   }
  },
- "nickname_tested": "BWmarkets",
- "positions_endpoint_found": null
+ "win_stats": {
+  "wins": 6,
+  "losses": 7,
+  "resolved": 13,
+  "win_pct": 46.2,
+  "sample_pnl": 25420.18,
+  "markets_seen": 13,
+  "trades_seen": 1000
+ },
+ "nickname_tested": "BWmarkets"
 }
