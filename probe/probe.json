@@ -1,6 +1,6 @@
 {
  "base": "https://api.elections.kalshi.com/v1/social",
- "time": "2026-11-09T15:41:12+00:00",
+ "time": "2026-11-09T16:49:41+00:00",
  "calls": [
   {
    "label": "leaderboard",
@@ -8,7 +8,7 @@
    "params": {
     "metric_name": "projected_pnl",
     "time_period": "all_time",
-    "limit": 30
+    "limit": 100
    },
    "status": 200,
    "sample": {
@@ -25,7 +25,7 @@
       "nickname": "final.lamb3899",
       "social_id": "",
       "profile_image_path": "final.lamb3899-generated-0-1780002060610",
-      "value": 7702486,
+      "value": 7702316,
       "rank": 2,
       "is_anonymous": false
      },
@@ -37,7 +37,7 @@
       "rank": 3,
       "is_anonymous": false
      },
-     "... 27 more"
+     "... 97 more"
     ],
     "coverage": {
      "provisional": false,
@@ -45,13 +45,256 @@
      "cutoff_ms": 0
     }
    }
+  },
+  {
+   "label": "profile",
+   "path": "profile",
+   "params": {
+    "nickname": "BWmarkets"
+   },
+   "status": 200,
+   "sample": {
+    "social_profile": {
+     "social_id": "87218195-9878-4036-a216-246deb7d0e50",
+     "nickname": "BWmarkets",
+     "follower_count": 21983,
+     "following_count": 0,
+     "posts_count": 18,
+     "profile_image_path": "BWmarkets-2026-09-11 00:02:53-5e93dac2-719d-40fb-b2c6-a5712270d40e",
+     "description": "",
+     "pending_profile_image_path": "",
+     "blocked": false,
+     "joined_at": "2025-02-03",
+     "profile_view_count": 146128,
+     "top_categories": [
+      "Sports",
+      "Combos"
+     ]
+    },
+    "inner_circle": {
+     "enabled": false,
+     "viewer_status": "none"
+    }
+   }
+  },
+  {
+   "label": "metrics",
+   "path": "profile/metrics",
+   "params": {
+    "nickname": "BWmarkets"
+   },
+   "status": 200,
+   "sample": {
+    "metrics": {
+     "signed_open_position": 0,
+     "signed_open_position_fp": "0.00",
+     "open_interest": 0,
+     "open_interest_fp": "0.00",
+     "volume": 21098040,
+     "volume_fp": "21098040.00",
+     "dollars_traded": 84650996332,
+     "dollars_investment": 76902457803,
+     "pnl": 8181349699,
+     "portfolio_value": 0,
+     "roi": 1063,
+     "num_markets_traded": 293
+    },
+    "social_id": "87218195-9878-4036-a216-246deb7d0e50"
+   }
+  },
+  {
+   "label": "trades",
+   "path": "trades",
+   "params": {
+    "nickname": "BWmarkets",
+    "limit": 5
+   },
+   "status": 200,
+   "sample": {
+    "trades": [
+     {
+      "trade_id": "072748ff-1b11-9d94-fcc6-55c673525c1f",
+      "market_id": "01a1bd65-1d15-706b-8f81-b9bcdf261ba9",
+      "ticker": "KXMVECROSSCATEGORY-S2026H4GS5X77QCR2UJIB-NGBOZCUZ3",
+      "price": 21,
+      "price_dollars": "0.2190",
+      "count": 189,
+      "count_fp": "189.30",
+      "taker_side": "yes",
+      "taker_action": "buy",
+      "maker_nickname": "",
+      "taker_nickname": "BWmarkets",
+      "create_date": "2026-11-08T23:02:42.492196Z"
+     },
+     {
+      "trade_id": "072748fe-61a9-a9dc-7f98-16d54755cb66",
+      "market_id": "01a1bd65-1d15-706b-8f81-b9bcdf261ba9",
+      "ticker": "KXMVECROSSCATEGORY-S2026H4GS5X77QCR2UJIB-NGBOZCUZ3",
+      "price": 22,
+      "price_dollars": "0.2240",
+      "count": 15664,
+      "count_fp": "15664.69",
+      "taker_side": "yes",
+      "taker_action": "buy",
+      "maker_nickname": "",
+      "taker_nickname": "BWmarkets",
+      "create_date": "2026-11-08T23:02:29.455839Z"
+     },
+     {
+      "trade_id": "072748f3-28a9-b4d1-60a7-23bff57bdb2b",
+      "market_id": "01a1bd65-1d15-706b-8f81-b9bcdf261ba9",
+      "ticker": "KXMVECROSSCATEGORY-S2026H4GS5X77QCR2UJIB-NGBOZCUZ3",
+      "price": 22,
+      "price_dollars": "0.2270",
+      "count": 41788,
+      "count_fp": "41788.54",
+      "taker_side": "yes",
+      "taker_action": "buy",
+      "maker_nickname": "",
+      "taker_nickname": "BWmarkets",
+      "create_date": "2026-11-08T23:01:57.50121Z"
+     },
+     "... 97 more"
+    ],
+    "visibility_state": "visible",
+    "cursor": "EhIKEAcnF635KbgKwtNuqR64Kk0aDAib2bTXBhCwuvz9AiAB"
+   }
+  },
+  {
+   "label": "positions",
+   "path": "profile/positions",
+   "params": {
+    "nickname": "BWmarkets",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/positions",
+   "params": {
+    "nickname": "BWmarkets",
+    "status": "closed",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/positions",
+   "params": {
+    "social_id": "87218195-9878-4036-a216-246deb7d0e50",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/closed_positions",
+   "params": {
+    "social_id": "87218195-9878-4036-a216-246deb7d0e50",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/positions/closed",
+   "params": {
+    "nickname": "BWmarkets",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/settled_positions",
+   "params": {
+    "nickname": "BWmarkets",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/market_positions",
+   "params": {
+    "nickname": "BWmarkets",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/holdings",
+   "params": {
+    "nickname": "BWmarkets",
+    "limit": 5
+   },
+   "status": 200,
+   "sample": {
+    "holdings": [],
+    "social_id": "87218195-9878-4036-a216-246deb7d0e50",
+    "visibility_state": "visible"
+   }
+  },
+  {
+   "label": "positions",
+   "path": "positions",
+   "params": {
+    "social_id": "87218195-9878-4036-a216-246deb7d0e50",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "positions",
+   "params": {
+    "nickname": "BWmarkets",
+    "status": "closed",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/BWmarkets/positions",
+   "params": {
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "users/87218195-9878-4036-a216-246deb7d0e50/positions",
+   "params": {
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
   }
  ],
+ "pool_size": 553,
  "visibility_scan": {
-  "checked": 30,
-  "hidden_or_empty": 30,
-  "picked": ""
+  "checked": 80,
+  "hidden_or_empty": 79,
+  "picked": "BWmarkets",
+  "states": {
+   "hidden": 79,
+   "visible": 1
+  }
  },
- "nickname_tested": "",
+ "nickname_tested": "BWmarkets",
  "positions_endpoint_found": null
 }
