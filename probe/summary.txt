@@ -1,0 +1,9 @@
+200  leaderboard leaderboard {'metric_name': 'projected_pnl', 'time_period': 'all_time', 'limit': 5}
+200  leaderboard leaderboard {'metric_name': 'projected_pnl', 'time_period': 'monthly', 'limit': 5}
+200  profile     profile {'nickname': '4thewin'}
+200  metrics     profile/metrics {'nickname': '4thewin'}
+404  positions   profile/positions {'nickname': '4thewin', 'limit': 5, 'open': 'false'}
+404  positions   profile/positions {'nickname': '4thewin', 'limit': 5, 'is_open': 'false'}
+404  positions   positions {'nickname': '4thewin', 'limit': 5, 'open': 'false'}
+404  positions   profile/closed_positions {'nickname': '4thewin', 'limit': 5}
+200  trades      trades {'nickname': '4thewin', 'limit': 5}

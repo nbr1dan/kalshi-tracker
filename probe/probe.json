@@ -1,0 +1,200 @@
+{
+ "base": "https://api.elections.kalshi.com/v1/social",
+ "time": "2026-11-09T15:26:03+00:00",
+ "calls": [
+  {
+   "label": "leaderboard",
+   "path": "leaderboard",
+   "params": {
+    "metric_name": "projected_pnl",
+    "time_period": "all_time",
+    "limit": 5
+   },
+   "status": 200,
+   "sample": {
+    "rank_list": [
+     {
+      "nickname": "4thewin",
+      "social_id": "",
+      "profile_image_path": "jpow",
+      "value": 7742386,
+      "rank": 1,
+      "is_anonymous": false
+     },
+     {
+      "nickname": "final.lamb3899",
+      "social_id": "",
+      "profile_image_path": "final.lamb3899-generated-0-1780002060610",
+      "value": 7696593.5,
+      "rank": 2,
+      "is_anonymous": false
+     },
+     {
+      "nickname": "dogname",
+      "social_id": "",
+      "profile_image_path": "RedskinRick-generated-0-1782513459146",
+      "value": 6537926.5,
+      "rank": 3,
+      "is_anonymous": false
+     },
+     "... 2 more"
+    ],
+    "coverage": {
+     "provisional": false,
+     "covered_users": 0,
+     "cutoff_ms": 0
+    }
+   }
+  },
+  {
+   "label": "leaderboard",
+   "path": "leaderboard",
+   "params": {
+    "metric_name": "projected_pnl",
+    "time_period": "monthly",
+    "limit": 5
+   },
+   "status": 200,
+   "sample": {
+    "rank_list": [
+     {
+      "nickname": "naughty.stork7605",
+      "social_id": "",
+      "profile_image_path": "naughty.stork7605-generated-0-1778698937282",
+      "value": 2675809.5,
+      "rank": 1,
+      "is_anonymous": false
+     },
+     {
+      "nickname": "reval",
+      "social_id": "",
+      "profile_image_path": "reval-2026-02-03 00:59:10",
+      "value": 1291900.4,
+      "rank": 2,
+      "is_anonymous": false
+     },
+     {
+      "nickname": "Mr.StealYourMoney",
+      "social_id": "",
+      "profile_image_path": "operational.jay6373-2026-04-29 20:13:39",
+      "value": 1256102.4,
+      "rank": 3,
+      "is_anonymous": false
+     },
+     "... 2 more"
+    ],
+    "coverage": {
+     "provisional": false,
+     "covered_users": 0,
+     "cutoff_ms": 0
+    }
+   }
+  },
+  {
+   "label": "profile",
+   "path": "profile",
+   "params": {
+    "nickname": "4thewin"
+   },
+   "status": 200,
+   "sample": {
+    "social_profile": {
+     "social_id": "d3301a4f-f7c7-4f6f-b249-fb6c0278754b",
+     "nickname": "4thewin",
+     "follower_count": 31008,
+     "following_count": 0,
+     "posts_count": 0,
+     "profile_image_path": "jpow",
+     "description": "acapital277@gmail .com CPA and professional accountant in Florida for a long-term working relationship.",
+     "pending_profile_image_path": "",
+     "blocked": false,
+     "joined_at": "2025-11-04",
+     "profile_view_count": 393415,
+     "top_categories": [
+      "Sports",
+      "Politics"
+     ]
+    },
+    "inner_circle": {
+     "enabled": true,
+     "viewer_status": "none"
+    }
+   }
+  },
+  {
+   "label": "metrics",
+   "path": "profile/metrics",
+   "params": {
+    "nickname": "4thewin"
+   },
+   "status": 200,
+   "sample": {
+    "metrics": {
+     "volume": 807939129,
+     "volume_fp": "807939129.00",
+     "dollars_traded": 4082830812513,
+     "pnl": 77423861156,
+     "num_markets_traded": 4134
+    },
+    "social_id": "d3301a4f-f7c7-4f6f-b249-fb6c0278754b"
+   }
+  },
+  {
+   "label": "positions",
+   "path": "profile/positions",
+   "params": {
+    "nickname": "4thewin",
+    "limit": 5,
+    "open": "false"
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/positions",
+   "params": {
+    "nickname": "4thewin",
+    "limit": 5,
+    "is_open": "false"
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "positions",
+   "params": {
+    "nickname": "4thewin",
+    "limit": 5,
+    "open": "false"
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "positions",
+   "path": "profile/closed_positions",
+   "params": {
+    "nickname": "4thewin",
+    "limit": 5
+   },
+   "status": 404,
+   "sample": ""
+  },
+  {
+   "label": "trades",
+   "path": "trades",
+   "params": {
+    "nickname": "4thewin",
+    "limit": 5
+   },
+   "status": 200,
+   "sample": {
+    "trades": [],
+    "visibility_state": "hidden"
+   }
+  }
+ ],
+ "nickname_tested": "4thewin"
+}
